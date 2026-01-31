@@ -50,7 +50,7 @@ jobs:
           key: ${{ secrets.EC2_KEY }}
           script: |
             cd /home/ec2-user/app/Java-springboot-project/backend
-            mvn clean package -DskipTests
+            mvn clean package -DskipTests -U
 
       # 4️⃣ Stop Existing Application
       - name: Stop Old Application
