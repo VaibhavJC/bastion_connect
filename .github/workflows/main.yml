@@ -56,34 +56,34 @@ jobs:
             cd /home/ec2-user/app/Java-springboot-project/backend
             mvn clean package -DskipTests -U
 
-      # 4️⃣ Stop Existing Application (SAFE)
-      - name: Stop Old Application
-        uses: appleboy/ssh-action@v1.1.0
-        with:
-          host: ${{ secrets.EC2_HOST }}
-          username: ec2-user
-          key: ${{ secrets.EC2_KEY }}
-          script_stop: false
-          script: |
-            PIDS=$(pgrep -f "java.*datastore-0.0.7.jar" || true)
+      # # 4️⃣ Stop Existing Application (SAFE)
+      # - name: Stop Old Application
+      #   uses: appleboy/ssh-action@v1.1.0
+      #   with:
+      #     host: ${{ secrets.EC2_HOST }}
+      #     username: ec2-user
+      #     key: ${{ secrets.EC2_KEY }}
+      #     script_stop: false
+      #     script: |
+      #       PIDS=$(pgrep -f "java.*datastore-0.0.7.jar" || true)
 
-            if [ -n "$PIDS" ]; then
-              echo "Stopping application PIDs: $PIDS"
+      #       if [ -n "$PIDS" ]; then
+      #         echo "Stopping application PIDs: $PIDS"
 
-              # Graceful shutdown
-              kill $PIDS || true
-              sleep 5
+      #         # Graceful shutdown
+      #         kill $PIDS || true
+      #         sleep 5
 
-              # Force kill if still alive
-              for PID in $PIDS; do
-                if ps -p $PID > /dev/null; then
-                  echo "Force killing PID $PID"
-                  kill -9 $PID || true
-                fi
-              done
-            else
-              echo "No running application found"
-            fi
+      #         # Force kill if still alive
+      #         for PID in $PIDS; do
+      #           if ps -p $PID > /dev/null; then
+      #             echo "Force killing PID $PID"
+      #             kill -9 $PID || true
+      #           fi
+      #         done
+      #       else
+      #         echo "No running application found"
+      #       fi
 
       # 5️⃣ Start New Application
       - name: Start Application
