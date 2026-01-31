@@ -44,7 +44,7 @@ jobs:
               cd $REPO_NAME
             fi
 
-      # 3️⃣ Build Maven Application (force dependency update)
+      # 3️⃣ Build Maven Application
       - name: Build Maven Application
         uses: appleboy/ssh-action@v1.1.0
         with:
@@ -56,30 +56,29 @@ jobs:
             cd /home/ec2-user/app/Java-springboot-project/backend
             mvn clean package -DskipTests -U
 
-      # 4️⃣ Stop Existing Application (SAFE – no SSH kill)
+      # 4️⃣ Stop Existing Application (SAFE)
       - name: Stop Old Application
         uses: appleboy/ssh-action@v1.1.0
         with:
           host: ${{ secrets.EC2_HOST }}
           username: ec2-user
           key: ${{ secrets.EC2_KEY }}
+          script_stop: false
           script: |
-            set +e
-
-            PIDS=$(pgrep -f "java.*datastore-0.0.7.jar")
+            PIDS=$(pgrep -f "java.*datastore-0.0.7.jar" || true)
 
             if [ -n "$PIDS" ]; then
               echo "Stopping application PIDs: $PIDS"
 
               # Graceful shutdown
-              kill $PIDS
+              kill $PIDS || true
               sleep 5
 
-              # Force kill only if still alive
+              # Force kill if still alive
               for PID in $PIDS; do
                 if ps -p $PID > /dev/null; then
                   echo "Force killing PID $PID"
-                  kill -9 $PID
+                  kill -9 $PID || true
                 fi
               done
             else
@@ -113,4 +112,3 @@ jobs:
               > $LOG_DIR/nohup.out 2>&1 &
 
             echo "🚀 Application started successfully"
-#killl
