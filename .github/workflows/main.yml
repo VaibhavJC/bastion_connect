@@ -1,0 +1,95 @@
+name: Full CI/CD Pipeline - Maven Spring Boot on EC2
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+
+    steps:
+      # 1️⃣ Checkout (only for pipeline context)
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+
+      # 2️⃣ SSH: Clone or Pull Repo on EC2
+      - name: Clone / Pull Repository on EC2
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            sudo yum install -y git maven java-17-amazon-corretto || true
+
+            APP_DIR=/home/ec2-user/app
+            REPO_NAME=Java-springboot-project
+            REPO_URL=https://github.com/CloudTechDevOps/Java-springboot-project.git
+
+            mkdir -p $APP_DIR
+            cd $APP_DIR
+
+            if [ -d "$REPO_NAME" ]; then
+              echo "Repository exists. Pulling latest code..."
+              cd $REPO_NAME
+              git pull origin main
+            else
+              echo "Cloning repository..."
+              git clone $REPO_URL
+              cd $REPO_NAME
+            fi
+
+      # 3️⃣ Build Maven Application on EC2
+      - name: Build Maven Application
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            cd /home/ec2-user/app/Java-springboot-project/backend
+            mvn clean package -DskipTests
+
+      # 4️⃣ Stop Existing Application
+      - name: Stop Old Application
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            PID=$(pgrep -f datastore-0.0.7.jar || true)
+            if [ -n "$PID" ]; then
+              echo "Stopping running application (PID: $PID)"
+              kill -9 $PID
+            else
+              echo "No running application found"
+            fi
+
+      # 5️⃣ Start New Application
+      - name: Start Application
+        uses: appleboy/ssh-action@v1.1.0
+        with:
+          host: ${{ secrets.EC2_HOST }}
+          username: ec2-user
+          key: ${{ secrets.EC2_KEY }}
+          script: |
+            LOG_DIR=/var/log/app
+            mkdir -p $LOG_DIR
+            sudo chown ec2-user:ec2-user $LOG_DIR
+
+            cd /home/ec2-user/app/Java-springboot-project/backend/target
+
+            nohup env \
+            MYSQL_HOST=${{ secrets.DB_HOST }} \
+            MYSQL_PORT=3306 \
+            MYSQL_USERNAME=${{ secrets.DB_USERNAME }} \
+            MYSQL_PASSWORD=${{ secrets.DB_PASSWORD }} \
+            LOG_FILE_PATH=$LOG_DIR/datastore.log \
+            java -jar datastore-0.0.7.jar \
+            --server.port=8084 \
+            > $LOG_DIR/nohup.out 2>&1 &
+
+            echo "🚀 Application deployed successfully"
